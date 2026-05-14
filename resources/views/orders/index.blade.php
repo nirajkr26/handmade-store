@@ -1,8 +1,12 @@
 <x-app-layout>
     <x-slot name="header">
         <div>
-            <h2 class="text-2xl font-black text-gray-900 tracking-tight">My Orders</h2>
-            <p class="text-sm text-gray-500 mt-0.5">Track your purchases and order history</p>
+            <h2 class="text-2xl font-black text-gray-900 tracking-tight">
+                {{ Auth::user()->isSeller() ? 'Orders Received' : 'My Orders' }}
+            </h2>
+            <p class="text-sm text-gray-500 mt-0.5">
+                {{ Auth::user()->isSeller() ? 'Manage orders from your customers' : 'Track your purchases and order history' }}
+            </p>
         </div>
     </x-slot>
 
@@ -14,11 +18,15 @@
                         <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
                     </div>
                     <h3 class="text-lg font-bold text-gray-900 mb-1">No orders yet</h3>
-                    <p class="text-sm text-gray-500 mb-6">Start shopping to see your orders here.</p>
-                    <a href="{{ route('products.index') }}" class="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white rounded-xl btn-primary">
-                        Browse Marketplace
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
-                    </a>
+                    <p class="text-sm text-gray-500 mb-6">
+                        {{ Auth::user()->isSeller() ? 'You haven\'t received any orders yet.' : 'Start shopping to see your orders here.' }}
+                    </p>
+                    @if(Auth::user()->isBuyer())
+                        <a href="{{ route('products.index') }}" class="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white rounded-xl btn-primary">
+                            Browse Marketplace
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+                        </a>
+                    @endif
                 </div>
             @else
                 <div class="space-y-5">
@@ -31,7 +39,12 @@
                                         <span class="text-xs font-bold text-white">#{{ $order->id }}</span>
                                     </div>
                                     <div>
-                                        <p class="text-sm font-bold text-gray-900">Order #{{ $order->id }}</p>
+                                        <p class="text-sm font-bold text-gray-900">
+                                            Order #{{ $order->id }} 
+                                            @if(Auth::user()->isSeller())
+                                                <span class="text-xs font-normal text-gray-500">— Buyer: {{ $order->buyer->name }}</span>
+                                            @endif
+                                        </p>
                                         <p class="text-xs text-gray-500">{{ $order->created_at->format('M d, Y \a\t h:i A') }}</p>
                                     </div>
                                 </div>
@@ -50,6 +63,30 @@
                                         {{ $order->status }}
                                     </span>
                                     <p class="text-xl font-black text-gray-900">${{ number_format($order->total_amount, 2) }}</p>
+
+                                    @if(Auth::user()->isBuyer() && $order->status === 'pending')
+                                        <form action="{{ route('orders.destroy', $order) }}" method="POST" onsubmit="return confirm('Are you sure you want to cancel this order?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="text-[10px] font-bold uppercase tracking-wider text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-lg transition border border-red-100">
+                                                Cancel
+                                            </button>
+                                        </form>
+                                    @endif
+
+                                    @if(Auth::user()->isSeller())
+                                        <form action="{{ route('orders.update', $order) }}" method="POST" class="flex gap-1">
+                                            @csrf
+                                            @method('PATCH')
+                                            @if($order->status === 'pending')
+                                                <button name="status" value="processing" type="submit" class="text-[10px] font-bold uppercase tracking-wider text-blue-600 hover:text-blue-700 bg-blue-50 border border-blue-100 px-3 py-1 rounded-lg">Process</button>
+                                            @elseif($order->status === 'processing')
+                                                <button name="status" value="shipped" type="submit" class="text-[10px] font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-700 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-lg">Ship</button>
+                                            @elseif($order->status === 'shipped')
+                                                <button name="status" value="delivered" type="submit" class="text-[10px] font-bold uppercase tracking-wider text-emerald-600 hover:text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-lg">Deliver</button>
+                                            @endif
+                                        </form>
+                                    @endif
                                 </div>
                             </div>
 

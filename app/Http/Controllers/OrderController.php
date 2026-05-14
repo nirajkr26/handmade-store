@@ -15,7 +15,19 @@ class OrderController extends Controller
 {
     public function index()
     {
-        $orders = Auth::user()->orders()->with('items.product')->latest()->get();
+        $user = Auth::user();
+        
+        if ($user->isSeller()) {
+            // Get orders where the seller's products are involved
+            $orders = Order::whereHas('items.product', function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            })->with(['items.product', 'buyer'])->latest()->get();
+            
+            return view('orders.index', compact('orders'));
+        }
+
+        // For buyers, get orders they placed
+        $orders = $user->orders()->with('items.product')->latest()->get();
         return view('orders.index', compact('orders'));
     }
 
@@ -58,5 +70,49 @@ class OrderController extends Controller
         Mail::to($request->user())->send(new OrderPlaced($order));
 
         return redirect()->route('orders.index')->with('success', 'Order placed successfully!');
+    }
+
+    public function update(Request $request, Order $order)
+    {
+        // Ensure user is the seller of at least one item in the order
+        // In this simplified model, we check if the user is a seller
+        if (!Auth::user()->isSeller()) {
+            abort(403);
+        }
+
+        $request->validate([
+            'status' => 'required|in:pending,processing,shipped,delivered,cancelled',
+        ]);
+
+        $order->update(['status' => $request->status]);
+
+        return back()->with('success', 'Order status updated to ' . $request->status . '.');
+    }
+
+    public function destroy(Order $order)
+    {
+        // Ensure user owns the order
+        if ($order->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        // Only allow cancellation of pending orders
+        if ($order->status !== 'pending') {
+            return back()->with('error', 'Only pending orders can be cancelled.');
+        }
+
+        DB::transaction(function () use ($order) {
+            // Restore stock for each item
+            foreach ($order->items as $item) {
+                if ($item->product) {
+                    $item->product->increment('stock', $item->quantity);
+                }
+            }
+
+            // Update order status to cancelled
+            $order->update(['status' => 'cancelled']);
+        });
+
+        return back()->with('success', 'Order cancelled successfully and stock restored.');
     }
 }

@@ -24,6 +24,8 @@ Route::middleware('auth')->group(function () {
     Route::resource('categories', CategoryController::class)->only(['index', 'show']);
     Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
+    Route::delete('/orders/{order}', [OrderController::class, 'destroy'])->name('orders.destroy');
+    Route::patch('/orders/{order}', [OrderController::class, 'update'])->name('orders.update');
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
     Route::post('/messages', [MessageController::class, 'store'])->name('messages.store');
 });

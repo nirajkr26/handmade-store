@@ -11,16 +11,39 @@ use App\Mail\NewMessageReceived;
 
 class MessageController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
-        $messages = Message::where('sender_id', $user->id)
+        
+        // Simplified approach: Get unique users we have chatted with
+        $conversations = Message::where('sender_id', $user->id)
             ->orWhere('receiver_id', $user->id)
             ->with(['sender', 'receiver'])
-            ->latest()
-            ->get();
+            ->get()
+            ->map(function ($message) use ($user) {
+                return $message->sender_id == $user->id ? $message->receiver : $message->sender;
+            })
+            ->unique('id');
 
-        return view('messages.index', compact('messages'));
+        $activeUser = null;
+        $activeMessages = collect();
+
+        if ($request->has('user')) {
+            $activeUser = User::find($request->user);
+            if ($activeUser) {
+                $activeMessages = Message::where(function($q) use ($user, $activeUser) {
+                        $q->where('sender_id', $user->id)->where('receiver_id', $activeUser->id);
+                    })
+                    ->orWhere(function($q) use ($user, $activeUser) {
+                        $q->where('sender_id', $activeUser->id)->where('receiver_id', $user->id);
+                    })
+                    ->with(['sender', 'receiver'])
+                    ->oldest() // Sort for chat view
+                    ->get();
+            }
+        }
+
+        return view('messages.index', compact('conversations', 'activeUser', 'activeMessages'));
     }
 
     public function store(Request $request)
