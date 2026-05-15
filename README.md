@@ -92,10 +92,6 @@ npm run dev
 
 Visit the app at [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
-## 🧪 Testing Account (via Seeder)
-If you ran the seeders, you can use these credentials:
-- **Seller/Admin**: `seller@example.com` / `password`
-- **Buyer**: `buyer@example.com` / `password`
 
 ## 📧 Mail Setup
 To test email notifications, configure your SMTP settings in `.env`. For local testing, you can use [Mailtrap](https://mailtrap.io/) or similar:
